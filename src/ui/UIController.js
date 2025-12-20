@@ -16,6 +16,7 @@ export class UIController {
         const showVisualBtn = document.getElementById('show-visual');
         const showCollisionBtn = document.getElementById('show-collision');
         const showComBtn = document.getElementById('show-com');
+        const showSphereBtn = document.getElementById('show-sphere');
         const showInertiaBtn = document.getElementById('show-inertia');
         const ignoreLimitsBtn = document.getElementById('ignore-limits');
 
@@ -49,6 +50,9 @@ export class UIController {
         }
         if (this.sceneManager && showComBtn) {
             this.sceneManager.inertialVisualization.showCOM = showComBtn.classList.contains('active');
+        }
+        if (this.sceneManager && showSphereBtn) {
+            this.sceneManager.visualizationManager.showCollisionSpheres = showSphereBtn.classList.contains('active');
         }
         if (this.sceneManager && showInertiaBtn) {
             this.sceneManager.inertialVisualization.showInertia = showInertiaBtn.classList.contains('active');
@@ -102,6 +106,18 @@ export class UIController {
                     if (mujocoManager && mujocoManager.hasScene()) {
                         mujocoManager.toggleCOMDisplay(newState);
                     }
+
+                    this.sceneManager.updateVisualTransparency();
+                    this.sceneManager.redraw();
+                    this.sceneManager.render();
+                });
+            });
+        }
+
+        if(showCollisionBtn) {
+            showSphereBtn.addEventListener('click', () => {
+                toggleButton(showSphereBtn, (newState) => {
+                    this.sceneManager.visualizationManager.toggleCollisionSpheres(newState);
 
                     this.sceneManager.updateVisualTransparency();
                     this.sceneManager.redraw();

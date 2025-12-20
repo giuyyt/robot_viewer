@@ -16,6 +16,7 @@ export class VisualizationManager {
         this.showCollision = false;
         this.showShadow = true;
         this.showEnhancedLighting = true;  // Default: enhanced lighting enabled
+        this.showCollisionSpheres = false;
     }
 
     /**
@@ -348,6 +349,15 @@ export class VisualizationManager {
         this.collisionMeshes.forEach(mesh => {
             mesh.visible = show;
         });
+    }
+
+    toggleCollisionSpheres(show) {
+        this.showCollisionSpheres = show;
+        console.log('Toggled collision spheres visibility to:', show);
+        // Set visibility for collision spheres
+        // this.collisionSpheres.forEach(sphere => {
+        //     sphere.visible = show;
+        // });
     }
 
     /**

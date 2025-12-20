@@ -72,6 +72,7 @@ export class FileHandler {
      * Handle file drop
      */
     async handleDrop(e) {
+        // console.log('Files dropped:', e.dataTransfer.files);
         const items = e.dataTransfer.items;
         if (!items || items.length === 0) return;
 
@@ -114,6 +115,7 @@ export class FileHandler {
      * Process file system entries
      */
     async processEntries(entries) {
+        console.log('Processing file system entries:', entries);
         const files = [];
 
         for (const entry of entries) {
@@ -217,6 +219,7 @@ export class FileHandler {
                     }
                 } else {
                     const fileType = getFileTypeFromExtension(ext);
+                    console.log(`Detected model file type: ${fileType}`);
                     return {
                         file: file,
                         name: file.name,

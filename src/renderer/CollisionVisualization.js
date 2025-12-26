@@ -65,7 +65,7 @@ export class CollisionVisualization {
             });
         });
 
-        this.setVisible(this.visible);
+        // this.setVisible(this.visible);
     }
 
     /**
@@ -84,8 +84,11 @@ export class CollisionVisualization {
 
     /** Set visibility for all collision spheres */
     setVisible(v) {
-        this.visible = !!v;
-        this.sphereMeshes.forEach(item => { if (item.mesh) item.mesh.visible = this.visible; });
+        this.visible = v;
+        this.sphereMeshes.forEach(item => { 
+            if (item.mesh) item.mesh.visible = this.visible; 
+            console.log(item.mesh.visible);
+        });
     }
 
     /**

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CollisionVisualization } from './CollisionVisualization.js';
 
 /**
  * VisualizationManager - Handles visual and collision mesh extraction and visibility
@@ -17,6 +18,8 @@ export class VisualizationManager {
         this.showShadow = true;
         this.showEnhancedLighting = true;  // Default: enhanced lighting enabled
         this.showCollisionSpheres = false;
+        // Collision spheres visualizer
+        this.collisionVisualizer = null;
     }
 
     /**
@@ -192,6 +195,21 @@ export class VisualizationManager {
                 }
             }
         });
+
+        // Initialize collision visualizer if not yet created
+        if (!this.collisionVisualizer) {
+            this.collisionVisualizer = new CollisionVisualization(this.sceneManager);
+        }
+
+        // If collision spheres display is enabled, try to show them for this model
+        if (this.showCollisionSpheres && model) {
+            const links = model.parsedCollisionSpheres || window.app?.fileHandler?.parsedCollisionSpheres || null;
+            if (links && Array.isArray(links)) {
+                this.collisionVisualizer.showFromParsed(model, links);
+            } else {
+                console.warn('No parsed collision spheres available to visualize for model');
+            }
+        }
     }
 
     /**
@@ -354,10 +372,28 @@ export class VisualizationManager {
     toggleCollisionSpheres(show) {
         this.showCollisionSpheres = show;
         console.log('Toggled collision spheres visibility to:', show);
-        // Set visibility for collision spheres
-        // this.collisionSpheres.forEach(sphere => {
-        //     sphere.visible = show;
-        // });
+        // Ensure visualizer exists
+        if (!this.collisionVisualizer) {
+            this.collisionVisualizer = new CollisionVisualization(this.sceneManager);
+        }
+
+        // If turning on, try to display parsed spheres for current model
+        if (show) {
+            const currentModel = this.sceneManager?.currentModel || null;
+            const links = currentModel?.parsedCollisionSpheres || window.app?.fileHandler?.parsedCollisionSpheres || null;
+            if (links && Array.isArray(links) && currentModel) {
+                this.collisionVisualizer.showFromParsed(currentModel, links);
+            } else {
+                // still set visibility for any existing meshes
+                this.collisionVisualizer.setVisible(true);
+                if (!links) console.warn('No parsed collision spheres found to show');
+            }
+        } else {
+            // hide/clear
+            this.collisionVisualizer.setVisible(false);
+            // Optionally clear to free memory
+            // this.collisionVisualizer.clear();
+        }
     }
 
     /**

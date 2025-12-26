@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { ModelLoaderFactory } from '../loaders/ModelLoaderFactory.js';
 import { readFileContent, getFileFromEntry, getFileTypeFromExtension, getFileDisplayType } from '../utils/FileUtils.js';
+import { parseCollisionSpheres } from '../utils/parseCollisions.js';
 
 export class FileHandler {
     constructor() {
@@ -13,6 +14,7 @@ export class FileHandler {
         this.currentModelFile = null;
         this.onModelLoaded = null; // Callback function
         this.usdViewerManager = null; // USD viewer manager (lazy loaded)
+        this.parsedCollisionSpheres = null;
     }
 
     /**
@@ -133,6 +135,7 @@ export class FileHandler {
         if (files.length === 0) return;
 
         const loadableFiles = await this.findAllLoadableFiles(files);
+        // console.log('Loadable files found:', loadableFiles);
 
         if (loadableFiles.length === 0) {
             this.onFilesLoaded?.([]);
@@ -189,7 +192,8 @@ export class FileHandler {
     async findAllLoadableFiles(files) {
         const supportedExtensions = {
             model: ['urdf', 'xml', 'usd', 'usda', 'usdc', 'usdz'],
-            mesh: ['dae', 'stl', 'obj', 'collada']
+            mesh: ['dae', 'stl', 'obj', 'collada'],
+            config: ['json', 'yaml']
         };
         const loadableFiles = [];
 
@@ -200,6 +204,7 @@ export class FileHandler {
                 if (ext === 'xml') {
                     try {
                         const content = await readFileContent(file);
+                        console.log(`Reading XML file: ${content}`);
                         const fileType = ModelLoaderFactory.detectFileType(file.name, content);
 
                         if (!fileType) {
@@ -236,6 +241,56 @@ export class FileHandler {
                     path: file.webkitRelativePath || file.name,
                     category: 'mesh'
                 };
+            } else if (supportedExtensions.config.includes(ext)) {
+                console.log(`Detected config file type: ${ext}`);
+                console.log(`Reading config file: ${file.name}`);
+                try {
+                    const content = await readFileContent(file);
+                    let parsedConfig = null;
+
+                    if (ext === 'json') {
+                        try {
+                            parsedConfig = JSON.parse(content);
+                        } catch (e) {
+                            console.error(`Invalid JSON in config file ${file.name}:`, e);
+                        }
+                    } else if (ext === 'yaml' || ext === 'yml') {
+                        let jsyaml = null;
+                        try {
+                            if (typeof window !== 'undefined' && window.jsyaml) jsyaml = window.jsyaml;
+                            else if (typeof require !== 'undefined') jsyaml = require('js-yaml');
+                        } catch (e) {
+                            jsyaml = null;
+                        }
+                        if (jsyaml && typeof jsyaml.load === 'function') {
+                            try { parsedConfig = jsyaml.load(content); } catch (e) { console.error(`Failed to parse YAML ${file.name}:`, e); }
+                        } else {
+                            try { parsedConfig = JSON.parse(content); } catch (e) { console.warn(`No YAML parser available for ${file.name} and JSON parse failed.`); }
+                        }
+                    } else {
+                        try { parsedConfig = JSON.parse(content); } catch (e) { console.warn(`Config parse failed for ${file.name}`); }
+                    }
+
+                    if (parsedConfig) {
+                        console.log(`Parsing collision spheres from config file: ${file.name}`);
+                        const links_spheres = parseCollisionSpheres(parsedConfig);
+                        console.log(JSON.stringify(links_spheres, null, 2));
+                        // Optionally store parsed result for later use
+                        this.parsedCollisionSpheres = links_spheres;
+                    } else {
+                        console.warn(`Unable to parse config file: ${file.name}`);
+                    }
+                } catch (err) {
+                    console.error(`Failed to read/parse config file ${file.name}:`, err);
+                }
+
+                return {
+                    file: file,
+                    name: file.name,
+                    type: 'config',
+                    path: file.webkitRelativePath || file.name,
+                    category: 'config'
+                };
             }
 
             return null;
@@ -267,6 +322,9 @@ export class FileHandler {
             await this.loadFile(fileInfo.file);
         } else if (fileInfo.category === 'mesh') {
             await this.loadMeshAsModel(fileInfo.file, fileInfo.name);
+        } else if (fileInfo.category === 'config') {
+            // await this.loadMeshAsModel(fileInfo.file, fileInfo.name);
+            console.log('Config file dropped:', fileInfo.name);
         }
     }
 

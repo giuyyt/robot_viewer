@@ -385,6 +385,7 @@ export class VisualizationManager {
                 this.collisionVisualizer.showFromParsed(currentModel, links);
             } else {
                 // still set visibility for any existing meshes
+                console.log('No parsed collision spheres found to show, but setting visibility for existing spheres if any');
                 this.collisionVisualizer.setVisible(true);
                 if (!links) console.warn('No parsed collision spheres found to show');
             }

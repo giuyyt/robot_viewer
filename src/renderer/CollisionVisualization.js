@@ -19,6 +19,7 @@ export class CollisionVisualization {
         if (!model || !model.threeObject || !Array.isArray(linksSpheres)) return;
 
         // Clear any existing visualization first
+        // TODO:每次显示球体都是群体删除再显示，性能没有达到最优。
         this.clear();
 
         linksSpheres.forEach(entry => {

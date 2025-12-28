@@ -4,16 +4,18 @@
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { xml } from '@codemirror/lang-xml';
+import { json } from '@codemirror/lang-json';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
 import { dracula } from '@uiw/codemirror-theme-dracula';
 
 export class CodeEditor {
-    constructor(parentElement, theme = 'vscode-dark') {
+    constructor(parentElement, theme = 'vscode-dark', language = 'xml') {
         this.parentElement = parentElement;
         this.view = null;
         this.onChangeCallback = null;
         this.currentTheme = theme;
+        this.currentLanguage = language; // 'xml' or 'json'
 
         this.setupEditor();
     }
@@ -33,6 +35,15 @@ export class CodeEditor {
         }
     }
 
+    /** Return the language extension based on currentLanguage */
+    getLanguageExtension() {
+        if (this.currentLanguage === 'json') {
+            return json();
+        }
+        // default to XML
+        return xml();
+    }
+
     setupEditor() {
         // Clear container
         this.parentElement.innerHTML = '';
@@ -42,7 +53,7 @@ export class CodeEditor {
             doc: '',
             extensions: [
                 basicSetup,
-                xml(),
+                this.getLanguageExtension(),
                 this.getThemeExtension(), // Use theme
                 EditorView.theme({
                     "&": {
@@ -181,6 +192,34 @@ export class CodeEditor {
         this.view.dispatch({
             selection: { anchor: cursorPos, head: cursorPos }
         });
+    }
+
+    /**
+     * Change language mode and re-create editor to apply language extension
+     * @param {string} lang - 'xml' or 'json'
+     */
+    setLanguage(lang) {
+        if (!lang) return;
+        if (this.currentLanguage === lang && this.view) return;
+
+        const currentContent = this.getValue();
+        const cursorPos = this.view ? this.view.state.selection.main.head : 0;
+
+        // Destroy existing view
+        if (this.view) {
+            this.view.destroy();
+            this.view = null;
+        }
+
+        this.currentLanguage = lang;
+        // Recreate editor with new language extension
+        this.setupEditor();
+
+        // Restore content and cursor
+        this.setValue(currentContent);
+        if (this.view) {
+            this.view.dispatch({ selection: { anchor: cursorPos, head: cursorPos } });
+        }
     }
 
     /**

@@ -16,6 +16,7 @@ export class CodeEditorManager {
             defaultFileType: 'urdf' // urdf, mjcf, usd
         };
         this.onReload = null; // Reload callback
+        this.onSave = null; // Callback invoked after saving (passes new File)
         this.fileMap = null; // File map reference
     }
 
@@ -279,6 +280,18 @@ export class CodeEditorManager {
             this.editorState.originalContent = content;
             this.editorState.currentContent = content;
 
+            // Set language mode based on file extension
+            try {
+                const ext = (file.name || '').toLowerCase().split('.').pop();
+                if (ext === 'json') {
+                    this.codeEditorInstance.setLanguage('json');
+                } else {
+                    this.codeEditorInstance.setLanguage('xml');
+                }
+            } catch (e) {
+                // ignore and keep default
+            }
+
             // Display file content
             this.codeEditorInstance.setValue(content);
             const filenameEl = document.getElementById('editor-filename');
@@ -372,6 +385,15 @@ export class CodeEditorManager {
             this.editorState.currentContent = newContent;
 
             this.updateEditorSaveStatus();
+
+            // Notify listeners that a save has occurred (pass new File object)
+            try {
+                if (typeof this.onSave === 'function') {
+                    this.onSave(newFile);
+                }
+            } catch (e) {
+                console.error('onSave callback error:', e);
+            }
 
         } catch (error) {
             console.error('Download failed:', error);

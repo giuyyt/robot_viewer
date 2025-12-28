@@ -185,6 +185,43 @@ class App {
                 }
             };
 
+            // When editor performs a save, try to update parsed collision spheres and visualization
+            this.codeEditorManager.onSave = async (newFile) => {
+                if (!newFile) return;
+                try {
+                    const text = await new Promise((resolve, reject) => {
+                        const fr = new FileReader();
+                        fr.onload = () => resolve(fr.result);
+                        fr.onerror = (e) => reject(e);
+                        fr.readAsText(newFile);
+                    });
+
+                    let parsed = null;
+                    try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
+
+                    if (parsed && Array.isArray(parsed)) {
+                        // Update fileHandler parsed spheres and current model if exists
+                        try {
+                            if (this.fileHandler) this.fileHandler.parsedCollisionSpheres = parsed;
+                            const currentModel = this.sceneManager?.currentModel;
+                            if (currentModel) {
+                                currentModel.parsedCollisionSpheres = parsed;
+                                // Update visualizer
+                                const vis = this.sceneManager?.visualizationManager;
+                                if (vis && vis.collisionVisualizer) {
+                                    vis.collisionVisualizer.clear();
+                                    vis.collisionVisualizer.showFromParsed(currentModel, parsed);
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Failed to apply saved collision spheres:', e);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to read saved file for collision spheres update:', error);
+                }
+            };
+
             // Initialize measurement controller
             this.measurementController = new MeasurementController(this.sceneManager);
 
@@ -201,6 +238,8 @@ class App {
 
             // Update editor button visibility
             this.updateEditorButtonVisibility();
+            // Setup collision sphere editor toggle button
+            this.setupCollisionSphereEditorButton();
 
             // Start render loop
             this.animate();
@@ -218,6 +257,106 @@ class App {
         if (openEditorBtn) {
             openEditorBtn.classList.add('visible');
         }
+    }
+
+    /**
+     * Setup open-collision-sphere-editor button behavior
+     * Toggle `active` class on click and toggle corresponding panel if present
+     */
+    setupCollisionSphereEditorButton() {
+        const btn = document.getElementById('open-collision-sphere-editor-btn');
+        if (!btn) return;
+
+        const panel = document.getElementById('collision-sphere-editor-panel');
+
+        btn.addEventListener('click', async () => {
+            // If a dedicated panel exists, toggle it; otherwise, open the main code editor panel
+            const editorPanel = document.getElementById('code-editor-panel');
+
+            // If editorPanel exists, ensure it's visible and mark main editor button active
+            if (editorPanel && this.codeEditorManager) {
+                const wasVisible = editorPanel.classList.contains('visible');
+
+                // If already visible and active, clicking should hide both editor and this button
+                if (wasVisible) {
+                    editorPanel.classList.remove('visible');
+                    btn.classList.remove('active');
+                    return;
+                }
+
+                // Make editor visible
+                editorPanel.classList.add('visible');
+                btn.classList.add('active');
+
+                // Prepare JSON content for collision spheres
+                let parsed = null;
+                try {
+                    parsed = (this.fileHandler && this.fileHandler.parsedCollisionSpheres) || window.app?.fileHandler?.parsedCollisionSpheres || null;
+                } catch (e) {
+                    parsed = null;
+                }
+
+                // If parsed collision spheres are available, load them; otherwise try to find a config file in fileMap
+                if (parsed && Array.isArray(parsed)) {
+                    const jsonText = JSON.stringify(parsed, null, 2);
+                    const blob = new Blob([jsonText], { type: 'application/json' });
+                    const tmpFile = new File([blob], 'collision_spheres.json', { type: 'application/json' });
+
+                    try {
+                        await this.codeEditorManager.loadFile(tmpFile);
+                    } catch (err) {
+                        console.error('Failed to load collision spheres into editor:', err);
+                    }
+                } else {
+                    // Try to locate a JSON config file from fileMap
+                    let foundFile = null;
+                    try {
+                        if (this.fileHandler && this.fileHandler.fileMap) {
+                            for (const [path, f] of this.fileHandler.fileMap.entries()) {
+                                if (f && f.name && f.name.toLowerCase().endsWith('.json')) {
+                                    foundFile = f;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (e) { foundFile = null; }
+
+                    if (foundFile) {
+                        try {
+                            await this.codeEditorManager.loadFile(foundFile);
+                        } catch (err) {
+                            console.error('Failed to load found JSON file into editor:', err);
+                        }
+                    } else {
+                        // No data available: show empty editor with a template
+                        const template = JSON.stringify([{ "link": "link_name", "spheres": [{ "origin": [0,0,0], "radius": 0.01 }] }], null, 2);
+                        const blob = new Blob([template], { type: 'application/json' });
+                        const tmpFile = new File([blob], 'collision_spheres_template.json', { type: 'application/json' });
+                        try {
+                            await this.codeEditorManager.loadFile(tmpFile);
+                        } catch (err) {
+                            console.error('Failed to load template into editor:', err);
+                        }
+                    }
+                }
+
+                return;
+            }
+
+            // Fallback: no code editor available - just toggle visual state
+            if (panel) {
+                const visible = panel.classList.contains('visible');
+                if (visible) {
+                    panel.classList.remove('visible');
+                    btn.classList.remove('active');
+                } else {
+                    panel.classList.add('visible');
+                    btn.classList.add('active');
+                }
+            } else {
+                btn.classList.toggle('active');
+            }
+        });
     }
 
     /**

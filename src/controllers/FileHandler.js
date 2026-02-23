@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { ModelLoaderFactory } from '../loaders/ModelLoaderFactory.js';
 import { readFileContent, getFileFromEntry, getFileTypeFromExtension, getFileDisplayType } from '../utils/FileUtils.js';
 import { parseCollisionSpheres } from '../utils/parseCollisions.js';
+import { configManager } from '../utils/ConfigManager.js'; // 新增导入
 
 export class FileHandler {
     constructor() {
@@ -277,6 +278,9 @@ export class FileHandler {
                         console.log(JSON.stringify(links_spheres, null, 2));
                         // Optionally store parsed result for later use
                         this.parsedCollisionSpheres = links_spheres;
+
+                        // 新增：将配置数据保存到全局配置管理器
+                        configManager.setConfig(parsedConfig, links_spheres, file.name, content)
                     } else {
                         console.warn(`Unable to parse config file: ${file.name}`);
                     }

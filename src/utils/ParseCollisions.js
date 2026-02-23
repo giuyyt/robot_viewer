@@ -31,7 +31,8 @@ export function parseCollisionSpheres(data) {
 }
 
 
+
 // CommonJS fallback so Node scripts using require(...) still work
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseCollisionSpheres };
+module.exports = { parseCollisionSpheres };
 }

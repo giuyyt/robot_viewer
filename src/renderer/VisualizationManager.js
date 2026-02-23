@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CollisionVisualization } from './CollisionVisualization.js';
+import { configManager } from '../utils/ConfigManager.js'; // 新增导入
 
 /**
  * VisualizationManager - Handles visual and collision mesh extraction and visibility
@@ -369,6 +370,9 @@ export class VisualizationManager {
         });
     }
 
+    /**
+     * Toggle collision spheres visibility
+     */
     toggleCollisionSpheres(show) {
         this.showCollisionSpheres = show;
         console.log('Toggled collision spheres visibility to:', show);
@@ -380,11 +384,11 @@ export class VisualizationManager {
         // If turning on, try to display parsed spheres for current model
         if (show) {
             const currentModel = this.sceneManager?.currentModel || null;
-            const links = currentModel?.parsedCollisionSpheres || window.app?.fileHandler?.parsedCollisionSpheres || null;
+            // 修改：从全局配置管理器获取数据
+            const links = configManager.getParsedCollisionSpheres() || currentModel?.parsedCollisionSpheres || null;
             if (links && Array.isArray(links) && currentModel) {
                 this.collisionVisualizer.showFromParsed(currentModel, links);
             } else {
-                // still set visibility for any existing meshes
                 console.log('No parsed collision spheres found to show, but setting visibility for existing spheres if any');
                 this.collisionVisualizer.setVisible(true);
                 if (!links) console.warn('No parsed collision spheres found to show');
@@ -392,8 +396,6 @@ export class VisualizationManager {
         } else {
             // hide/clear
             this.collisionVisualizer.setVisible(false);
-            // Optionally clear to free memory
-            // this.collisionVisualizer.clear();
         }
     }
 

@@ -239,11 +239,11 @@ export class CollisionVisualization {
         if (!this._editModeIndicator) return;
         
         if (this._editMode) {
-            this._editModeIndicator.textContent = '编辑模式: 开启 (按G键退出, P键保存)';
+            this._editModeIndicator.textContent = '编辑模式: 开启 (G退出, P保存, J添加, K删除)';
             this._editModeIndicator.style.backgroundColor = 'rgba(76, 175, 80, 0.8)';
             this._editModeIndicator.style.display = 'block';
         } else {
-            this._editModeIndicator.textContent = '编辑模式: 关闭 (按G键进入, P键保存)';
+            this._editModeIndicator.textContent = '编辑模式: 关闭 (G进入, P保存, J添加, K删除)';
             this._editModeIndicator.style.backgroundColor = 'rgba(244, 67, 54, 0.8)';
             this._editModeIndicator.style.display = 'block';
             
@@ -255,6 +255,7 @@ export class CollisionVisualization {
             // }, 3000);
         }
     }
+
 
     /** 键盘按下事件处理 */
     _onKeyDown(ev) {
@@ -270,14 +271,14 @@ export class CollisionVisualization {
             this.setEditMode(false);
         }
 
-        // 处理S键保存功能（在任何模式下都可以保存）
+        // 处理P键保存功能（在任何模式下都可以保存）
         if (ev.key === 'p' || ev.key === 'P') {
             ev.preventDefault();
             this.saveCollisionSpheres();
             return;
         }
         
-        // 只有在编辑模式下且有选中球体时才处理移动和缩放键
+        // 只有在编辑模式下且有选中球体时才处理移动、缩放、添加和删除键
         if (!this._isInEditMode() || !this._selected) return;
         
         // 处理移动键：W,S,A,D,Q,E
@@ -314,8 +315,151 @@ export class CollisionVisualization {
                 ev.preventDefault();
                 this._scaleSphere(-1);
                 break;
+            case 'j': // 添加碰撞球
+                ev.preventDefault();
+                this._addSphereNearSelected();
+                break;
+            case 'k': // 删除碰撞球
+                ev.preventDefault();
+                this._removeSelectedSphere();
+                break;
         }
     }
+
+
+    /** 在选中的球体附近添加新的碰撞球 */
+    _addSphereNearSelected() {
+        if (!this._selected || !this._selected.mesh) return;
+        
+        const selectedItem = this._selected;
+        const selectedMesh = selectedItem.mesh;
+        const linkName = selectedItem.linkName;
+        
+        // 获取选中球体的父级对象
+        const parent = selectedMesh.parent;
+        
+        // 在选中球体附近随机位置生成新球体（距离0.1-0.3单位）
+        const randomOffset = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.4 + 0.1,
+            (Math.random() - 0.5) * 0.4 + 0.1,
+            (Math.random() - 0.5) * 0.4 + 0.1
+        );
+        
+        const newPosition = selectedMesh.position.clone().add(randomOffset);
+        const radius = selectedItem.radius; // 使用相同的半径
+        
+        // 创建新球体的几何体和材质
+        const geo = new THREE.SphereGeometry(radius, 16, 12);
+        
+        // 获取或创建链接材质
+        let mat = this._linkMaterialMap.get(linkName);
+        if (!mat) {
+            const color = this._colorForLink(linkName);
+            mat = new THREE.MeshPhongMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.45,
+                depthTest: true,
+                depthWrite: false
+            });
+            this._linkMaterialMap.set(linkName, mat);
+        }
+        
+        // 创建新球体网格
+        const newMesh = new THREE.Mesh(geo, mat);
+        newMesh.position.copy(newPosition);
+        newMesh.castShadow = false;
+        newMesh.receiveShadow = false;
+        newMesh.userData.isCollisionSphere = true;
+        
+        // 添加到父级对象
+        parent.add(newMesh);
+        
+        // 创建新的球体数据项
+        const newItem = {
+            linkName: linkName,
+            mesh: newMesh,
+            origin: [newPosition.x, newPosition.y, newPosition.z],
+            radius: radius,
+            originalRadius: radius
+        };
+        
+        // 设置用户数据用于射线检测
+        newMesh.userData._collision = { 
+            linkName: linkName, 
+            index: this.sphereMeshes.length 
+        };
+        
+        // 添加到球体数组
+        this.sphereMeshes.push(newItem);
+        
+        // 自动选中新创建的球体
+        this._selectItem(newItem);
+        
+        // 立即更新ConfigManager中的配置数据
+        this._updateConfigManager();
+        
+        console.log(`添加新碰撞球: 链接=${linkName}, 位置=(${newPosition.x.toFixed(3)}, ${newPosition.y.toFixed(3)}, ${newPosition.z.toFixed(3)}), 半径=${radius.toFixed(3)}`);
+        this._showSaveNotification(`已添加新碰撞球到链接: ${linkName}`, 'success');
+    }
+    
+    /** 删除选中的碰撞球 */
+    _removeSelectedSphere() {
+        if (!this._selected || !this._selected.mesh) return;
+        
+        const selectedItem = this._selected;
+        const selectedMesh = selectedItem.mesh;
+        const linkName = selectedItem.linkName;
+        
+        // 从父级对象中移除网格
+        if (selectedMesh.parent) {
+            selectedMesh.parent.remove(selectedMesh);
+        }
+        
+        // 从球体数组中移除
+        const index = this.sphereMeshes.indexOf(selectedItem);
+        if (index >= 0) {
+            this.sphereMeshes.splice(index, 1);
+            
+            // 更新剩余球体的索引
+            for (let i = index; i < this.sphereMeshes.length; i++) {
+                if (this.sphereMeshes[i].mesh.userData._collision) {
+                    this.sphereMeshes[i].mesh.userData._collision.index = i;
+                }
+            }
+        }
+        
+        // 移除包围盒
+        this._removeBoundingBox();
+        
+        // 取消选中
+        this._selected = null;
+        
+        // 立即更新ConfigManager中的配置数据
+        this._updateConfigManager();
+        
+        console.log(`删除碰撞球: 链接=${linkName}, 索引=${index}`);
+        this._showSaveNotification(`已删除链接 ${linkName} 的碰撞球`, 'warning');
+    }
+    
+    /** 更新ConfigManager中的配置数据 */
+    _updateConfigManager() {
+        if (!configManager.hasConfig()) return;
+        
+        // 获取更新后的碰撞球数据
+        const updatedSpheres = this._getUpdatedSpheresData();
+        
+        // 更新全局配置管理器
+        configManager.updateOriginalConfig(updatedSpheres);
+        
+        console.log('ConfigManager: 碰撞球数据已实时更新');
+    }
+
+
+
+
+
+
 
 
     saveCollisionSpheres() {

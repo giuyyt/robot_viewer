@@ -111,12 +111,20 @@ export class CollisionVisualization {
                 // mesh.raycast = () => {};
 
                 parent.add(mesh);
-                this.sphereMeshes.push({ linkName, mesh, origin: origin.slice(), radius });
+                // 修改：添加原始半径存储
+                this.sphereMeshes.push({ 
+                    linkName, 
+                    mesh, 
+                    origin: origin.slice(), 
+                    radius, 
+                    originalRadius: radius // 存储原始半径
+                });
             });
         });
 
         // this.setVisible(this.visible);
     }
+
 
     /**
      * Find link object in scene graph (same heuristics as InertialVisualization)
@@ -495,15 +503,16 @@ export class CollisionVisualization {
         // 更新存储的半径数据
         const idx = this.sphereMeshes.indexOf(this._selected);
         if (idx >= 0) {
-            // 计算新的半径（基于原始半径和当前缩放）
-            const baseRadius = this.sphereMeshes[idx].radius || 1;
-            const newRadius = baseRadius * mesh.scale.x;
+            // 修正：基于原始半径计算新半径
+            const originalRadius = this.sphereMeshes[idx].originalRadius;
+            const newRadius = originalRadius * mesh.scale.x;
             this.sphereMeshes[idx].radius = newRadius;
             this._notifyChange(this.sphereMeshes[idx], idx);
         }
         
-        console.log(`缩放球体: 缩放因子=${scaleFactor.toFixed(3)}, 新半径=${this.sphereMeshes[idx].radius.toFixed(3)}`);
+        console.log(`缩放球体: 缩放因子=${scaleFactor.toFixed(3)}, 新半径=${this.sphereMeshes[idx].radius.toFixed(3)}, 原始半径=${this.sphereMeshes[idx].originalRadius.toFixed(3)}`);
     }
+
 
 
 

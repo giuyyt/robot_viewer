@@ -484,7 +484,6 @@ export class CollisionVisualization {
         console.log(`移动球体: X=${mesh.position.x.toFixed(3)}, Y=${mesh.position.y.toFixed(3)}, Z=${mesh.position.z.toFixed(3)}`);
     }
 
-    // TODO:显示的缩放倍数和保存的缩放倍数完全不匹配，需要debug。
     // TODO:移动的显示和保存暂时无问题。需要进一步测试。
     _scaleSphere(direction) {
         if (!this._selected || !this._selected.mesh) return;
